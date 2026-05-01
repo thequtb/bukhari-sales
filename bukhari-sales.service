@@ -1,0 +1,17 @@
+[Unit]
+Description=Bukhari Sales - Instagram AI Sales Assistant
+After=network.target
+
+[Service]
+Type=simple
+User=qutb
+Group=qutb
+WorkingDirectory=/home/qutb/dev/bukhari_sales/backend
+ExecStart=/home/qutb/dev/bukhari_sales/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+Restart=always
+RestartSec=5
+Environment=PATH=/home/qutb/dev/bukhari_sales/backend/.venv/bin:/usr/bin:/bin
+EnvironmentFile=/home/qutb/dev/bukhari_sales/backend/.env
+
+[Install]
+WantedBy=multi-user.target
