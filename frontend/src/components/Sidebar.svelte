@@ -4,7 +4,8 @@
   const navItems = [
     { id: 'demo', label: 'Демо-чат', icon: '🧪' },
     { id: 'dashboard', label: 'Панель управления', icon: '📊' },
-    { id: 'conversations', label: 'Беседы', icon: '💬' },
+    { id: 'conversations', label: 'Instagram Беседы', icon: '💬' },
+    { id: 'telegram', label: 'Telegram Беседы', icon: '✈️' },
     { id: 'orders', label: 'Заказы', icon: '📋' },
     { id: 'products', label: 'Товары', icon: '🛍️' },
     { id: 'settings', label: 'Настройки', icon: '⚙️' },

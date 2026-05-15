@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
-from app.models import Product, AIConfig, Message, Order
+from app.models import Product, AIConfig, Message, Order, TelegramMessage
 from app.prompts.sales_agent import DEFAULT_SYSTEM_PROMPT, NO_PRODUCTS_MESSAGE
 
 logger = logging.getLogger(__name__)
@@ -118,6 +118,9 @@ async def _execute_create_order(
     conversation_id: Optional[int],
     instagram_user_id: str,
     username: Optional[str],
+    telegram_conversation_id: Optional[int] = None,
+    telegram_user_id: Optional[str] = None,
+    channel: str = "instagram",
 ) -> str:
     """Execute the create_order tool call and persist to DB."""
     product_id = tool_args["product_id"]
@@ -133,12 +136,15 @@ async def _execute_create_order(
 
     order = Order(
         conversation_id=conversation_id,
+        telegram_conversation_id=telegram_conversation_id,
         product_id=product.id,
-        instagram_user_id=instagram_user_id,
+        instagram_user_id=instagram_user_id if channel == "instagram" else None,
+        telegram_user_id=telegram_user_id,
         username=username,
         customer_name=customer_name,
         customer_contact=customer_contact,
         notes=notes,
+        channel=channel,
         status="confirmed",
     )
     db.add(order)
@@ -147,8 +153,8 @@ async def _execute_create_order(
 
     variant = product.variant_name or product.name
     logger.info(
-        "Order #%d created: user=%s product=%s (%s ₸)",
-        order.id, username, variant, product.price,
+        "Order #%d created: user=%s product=%s (%s ₸) channel=%s",
+        order.id, username, variant, product.price, channel,
     )
     return (
         f"Заказ #{order.id} успешно создан!\n"
@@ -158,7 +164,7 @@ async def _execute_create_order(
     )
 
 
-def _build_message_history(messages: List[Message]) -> list:
+def _build_message_history(messages) -> list:
     lc_messages = []
     for msg in messages:
         if msg.sender == "user":
@@ -173,10 +179,13 @@ def _build_message_history(messages: List[Message]) -> list:
 async def generate_response(
     db: AsyncSession,
     user_message: str,
-    conversation_history: List[Message],
+    conversation_history,
     username: Optional[str] = None,
     conversation_id: Optional[int] = None,
     instagram_user_id: str = "unknown",
+    telegram_conversation_id: Optional[int] = None,
+    telegram_user_id: Optional[str] = None,
+    channel: str = "instagram",
 ) -> str:
     """Generate a sales response, executing tool calls if the AI decides to create an order."""
     try:
@@ -222,6 +231,9 @@ async def generate_response(
                 conversation_id=conversation_id,
                 instagram_user_id=instagram_user_id,
                 username=username,
+                telegram_conversation_id=telegram_conversation_id,
+                telegram_user_id=telegram_user_id,
+                channel=channel,
             )
 
             # Second call — give the AI the tool result to form a natural reply

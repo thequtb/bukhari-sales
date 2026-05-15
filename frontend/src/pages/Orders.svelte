@@ -78,6 +78,7 @@
           <thead>
             <tr>
               <th>#</th>
+              <th>Канал</th>
               <th>Клиент</th>
               <th>Контакт</th>
               <th>Товар</th>
@@ -92,6 +93,13 @@
             {#each orders as order (order.id)}
               <tr class="order-row" style="animation-delay: {orders.indexOf(order) * 0.04}s">
                 <td class="order-id">#{order.id}</td>
+                <td>
+                  {#if order.channel === 'telegram'}
+                    <span class="channel-badge channel-tg">✈️ Telegram</span>
+                  {:else}
+                    <span class="channel-badge channel-ig">📷 Instagram</span>
+                  {/if}
+                </td>
                 <td>
                   <div class="customer-info">
                     <span class="customer-name">{order.customer_name || '—'}</span>
@@ -126,11 +134,6 @@
                   {/if}
                 </td>
               </tr>
-              {#if order.notes}
-                <tr class="notes-row">
-                  <td colspan="9"><span class="notes-label">Примечание:</span> {order.notes}</td>
-                </tr>
-              {/if}
             {/each}
           </tbody>
         </table>
@@ -208,14 +211,24 @@
   .actions { display: flex; gap: 4px; }
   .closed-label { color: var(--text-muted); font-size: 0.75rem; }
 
-  .notes-row td {
-    padding: 4px 14px 10px 14px;
-    font-size: 0.78rem;
-    color: var(--text-secondary);
-    background: rgba(168, 85, 247, 0.03);
+  .channel-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 100px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    white-space: nowrap;
   }
 
-  .notes-label { font-weight: 600; color: var(--text-muted); }
+  .channel-tg {
+    background: rgba(37, 163, 232, 0.15);
+    color: #25a3e8;
+  }
+
+  .channel-ig {
+    background: rgba(168, 85, 247, 0.12);
+    color: var(--accent-purple);
+  }
 
   /* Custom badge colours */
   :global(.badge-pending) {

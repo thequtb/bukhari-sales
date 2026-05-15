@@ -42,6 +42,16 @@ export async function sendManualReply(conversationId, content) {
   });
 }
 
+// ── Telegram ───────────────────────────────────────────────────────────────
+
+export async function fetchTelegramConversations() {
+  return request('/telegram/conversations');
+}
+
+export async function fetchTelegramConversation(id) {
+  return request(`/telegram/conversations/${id}`);
+}
+
 // ── Products ───────────────────────────────────────────────────────────────
 
 export async function fetchProducts() {

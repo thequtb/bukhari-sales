@@ -7,8 +7,11 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from app.config import get_settings
 from app.database import init_db
 from app.routers import webhook, conversations, products, settings, demo, orders
+from app.routers import telegram as telegram_router
+from app.services import telegram_bot
 
 # Configure logging
 logging.basicConfig(
@@ -16,6 +19,7 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 logger = logging.getLogger(__name__)
+_settings = get_settings()
 
 
 @asynccontextmanager
@@ -24,14 +28,21 @@ async def lifespan(app: FastAPI):
     logger.info("🚀 Starting Bukhari Sales API...")
     await init_db()
     logger.info("✅ Database initialized")
+
+    # Start Telegram bot (polling in background)
+    await telegram_bot.start_bot(_settings.telegram_bot_token)
+
     yield
+
+    # Graceful shutdown
+    await telegram_bot.stop_bot()
     logger.info("🛑 Shutting down Bukhari Sales API...")
 
 
 app = FastAPI(
-    title="Bukhari Sales — Instagram AI Sales Assistant",
-    description="AI-powered Instagram DM sales bot with LangChain + OpenAI",
-    version="1.0.0",
+    title="Bukhari Sales — AI Sales Assistant",
+    description="AI-powered sales bot with Telegram + Instagram support, powered by LangChain + OpenAI",
+    version="2.0.0",
     lifespan=lifespan,
 )
 
@@ -51,6 +62,7 @@ app.include_router(products.router)
 app.include_router(settings.router)
 app.include_router(demo.router)
 app.include_router(orders.router)
+app.include_router(telegram_router.router)
 
 
 # WebSocket endpoint for real-time dashboard updates
@@ -73,4 +85,4 @@ async def websocket_endpoint(websocket: WebSocket):
 @app.get("/health")
 async def health():
     """Health check endpoint."""
-    return {"status": "healthy", "service": "bukhari-sales"}
+    return {"status": "healthy", "service": "bukhari-sales", "version": "2.0.0"}

@@ -95,12 +95,15 @@ class ProductOut(BaseModel):
 class OrderOut(BaseModel):
     id: int
     conversation_id: Optional[int] = None
+    telegram_conversation_id: Optional[int] = None
     product_id: int
     instagram_user_id: Optional[str] = None
+    telegram_user_id: Optional[str] = None
     username: Optional[str] = None
     customer_name: Optional[str] = None
     customer_contact: Optional[str] = None
     notes: Optional[str] = None
+    channel: str = "instagram"
     status: str
     created_at: datetime
     product: Optional[ProductOut] = None

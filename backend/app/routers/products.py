@@ -38,8 +38,7 @@ async def create_product(body: ProductCreate, db: AsyncSession = Depends(get_db)
     """Create a new product."""
     product = Product(**body.model_dump())
     db.add(product)
-    await db.flush()
-    await db.commit()
+    await db.flush()          # assign DB-generated id before refresh
     await db.refresh(product)
     logger.info("Product created: %s (id=%s)", product.name, product.id)
     return product
@@ -61,8 +60,7 @@ async def update_product(
     for key, value in update_data.items():
         setattr(product, key, value)
 
-    await db.flush()
-    await db.commit()
+    await db.flush()          # write changes; get_db() commits on exit
     await db.refresh(product)
     logger.info("Product updated: %s (id=%s)", product.name, product.id)
     return product
@@ -77,6 +75,6 @@ async def delete_product(product_id: int, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Product not found")
 
     await db.delete(product)
-    await db.commit()
+    await db.flush()          # get_db() commits on exit
     logger.info("Product deleted: id=%s", product_id)
     return {"status": "deleted", "id": product_id}

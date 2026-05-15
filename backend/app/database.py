@@ -7,7 +7,13 @@ from app.config import get_settings
 
 settings = get_settings()
 
-engine = create_async_engine(settings.database_url, echo=False)
+engine = create_async_engine(
+    settings.database_url,
+    echo=False,
+    pool_size=10,
+    max_overflow=20,
+    pool_pre_ping=True,
+)
 async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 
@@ -36,13 +42,14 @@ async def init_db():
         from app import models  # noqa: F401 — ensure models are imported
         await conn.run_sync(Base.metadata.create_all)
 
-        # Safe migration: add variant_name to products if missing
-        try:
-            await conn.execute(text(
-                "ALTER TABLE products ADD COLUMN variant_name VARCHAR(256)"
-            ))
-        except Exception:
-            pass  # Column already exists
+        # Safe migrations — PostgreSQL supports ADD COLUMN IF NOT EXISTS
+        for stmt in [
+            "ALTER TABLE products ADD COLUMN IF NOT EXISTS variant_name VARCHAR(256)",
+            "ALTER TABLE orders ADD COLUMN IF NOT EXISTS telegram_conversation_id INTEGER REFERENCES telegram_conversations(id)",
+            "ALTER TABLE orders ADD COLUMN IF NOT EXISTS telegram_user_id VARCHAR(128)",
+            "ALTER TABLE orders ADD COLUMN IF NOT EXISTS channel VARCHAR(20) DEFAULT 'instagram'",
+        ]:
+            await conn.execute(text(stmt))
 
 async def get_async_session():
     """Yield a standalone async session (for scripts)."""

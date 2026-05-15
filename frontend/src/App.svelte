@@ -3,6 +3,7 @@
   import Sidebar from './components/Sidebar.svelte';
   import Dashboard from './pages/Dashboard.svelte';
   import Conversations from './pages/Conversations.svelte';
+  import TelegramConversations from './pages/TelegramConversations.svelte';
   import Products from './pages/Products.svelte';
   import Settings from './pages/Settings.svelte';
   import Demo from './pages/Demo.svelte';
@@ -49,6 +50,8 @@
     <Demo />
   {:else if page === 'orders'}
     <Orders />
+  {:else if page === 'telegram'}
+    <TelegramConversations />
   {/if}
 </main>
 

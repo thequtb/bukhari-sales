@@ -2,8 +2,10 @@
 
 from datetime import datetime, timezone
 from sqlalchemy import (
-    Column, Integer, String, Text, Float, Boolean, DateTime, ForeignKey
+    Column, Integer, String, Text, Float, Boolean, ForeignKey
 )
+from sqlalchemy import DateTime as _DateTime
+from sqlalchemy.dialects.postgresql import TIMESTAMP as PGTS
 from sqlalchemy.orm import relationship
 import enum
 
@@ -29,6 +31,8 @@ class OrderStatus(str, enum.Enum):
     CANCELLED = "cancelled"
 
 
+# ── Instagram ─────────────────────────────────────────────────────────────────
+
 class Conversation(Base):
     __tablename__ = "conversations"
 
@@ -36,8 +40,9 @@ class Conversation(Base):
     instagram_user_id = Column(String(128), unique=True, nullable=False, index=True)
     username = Column(String(128), nullable=True)
     profile_pic_url = Column(Text, nullable=True)
-    started_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    last_message_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    # Use TIMESTAMP WITH TIME ZONE for all timestamps
+    started_at = Column(PGTS(timezone=True), default=lambda: datetime.now(timezone.utc))
+    last_message_at = Column(PGTS(timezone=True), default=lambda: datetime.now(timezone.utc))
     status = Column(String(20), default=ConversationStatus.ACTIVE.value)
 
     messages = relationship("Message", back_populates="conversation", order_by="Message.timestamp")
@@ -49,7 +54,9 @@ class Conversation(Base):
         if not self.last_message_at:
             return False
         now = datetime.now(timezone.utc)
-        last = self.last_message_at.replace(tzinfo=timezone.utc) if self.last_message_at.tzinfo is None else self.last_message_at
+        last = self.last_message_at
+        if last.tzinfo is None:
+            last = last.replace(tzinfo=timezone.utc)
         return (now - last).total_seconds() < 86400
 
 
@@ -61,10 +68,48 @@ class Message(Base):
     sender = Column(String(20), nullable=False)  # user, bot, operator
     content = Column(Text, nullable=False)
     instagram_message_id = Column(String(256), nullable=True)
-    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    timestamp = Column(PGTS(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     conversation = relationship("Conversation", back_populates="messages")
 
+
+# ── Telegram ──────────────────────────────────────────────────────────────────
+
+class TelegramConversation(Base):
+    """Tracks an ongoing Telegram chat with a user."""
+    __tablename__ = "telegram_conversations"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    telegram_user_id = Column(String(128), unique=True, nullable=False, index=True)
+    chat_id = Column(String(128), nullable=False)        # same as user_id for private chats
+    username = Column(String(128), nullable=True)        # @handle (may be absent)
+    full_name = Column(String(256), nullable=True)       # first + last name
+    started_at = Column(PGTS(timezone=True), default=lambda: datetime.now(timezone.utc))
+    last_message_at = Column(PGTS(timezone=True), default=lambda: datetime.now(timezone.utc))
+    status = Column(String(20), default=ConversationStatus.ACTIVE.value)
+
+    messages = relationship(
+        "TelegramMessage", back_populates="conversation",
+        order_by="TelegramMessage.timestamp"
+    )
+    orders = relationship("Order", back_populates="telegram_conversation")
+
+
+class TelegramMessage(Base):
+    """A single message in a Telegram conversation."""
+    __tablename__ = "telegram_messages"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    conversation_id = Column(Integer, ForeignKey("telegram_conversations.id"), nullable=False)
+    sender = Column(String(20), nullable=False)          # user | bot
+    content = Column(Text, nullable=False)
+    telegram_message_id = Column(String(64), nullable=True)
+    timestamp = Column(PGTS(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    conversation = relationship("TelegramConversation", back_populates="messages")
+
+
+# ── Products ──────────────────────────────────────────────────────────────────
 
 class Product(Base):
     """A product variant within a category.
@@ -84,12 +129,14 @@ class Product(Base):
     image_url = Column(Text, nullable=True)
     category = Column(String(128), nullable=True)       # grouping key
     in_stock = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc),
+    created_at = Column(PGTS(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(PGTS(timezone=True), default=lambda: datetime.now(timezone.utc),
                         onupdate=lambda: datetime.now(timezone.utc))
 
     orders = relationship("Order", back_populates="product")
 
+
+# ── Orders ────────────────────────────────────────────────────────────────────
 
 class Order(Base):
     """A confirmed purchase order created by the AI during conversation."""
@@ -97,20 +144,26 @@ class Order(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     conversation_id = Column(Integer, ForeignKey("conversations.id"), nullable=True)
+    telegram_conversation_id = Column(Integer, ForeignKey("telegram_conversations.id"), nullable=True)
     product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
     instagram_user_id = Column(String(128), nullable=True)
+    telegram_user_id = Column(String(128), nullable=True)
     username = Column(String(128), nullable=True)
     customer_name = Column(String(256), nullable=True)
-    customer_contact = Column(String(256), nullable=True)  # phone / email / IG handle
+    customer_contact = Column(String(256), nullable=True)  # phone / email / handle
     notes = Column(Text, nullable=True)
+    channel = Column(String(20), default="instagram")      # instagram | telegram
     status = Column(String(50), default=OrderStatus.CONFIRMED.value)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc),
+    created_at = Column(PGTS(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(PGTS(timezone=True), default=lambda: datetime.now(timezone.utc),
                         onupdate=lambda: datetime.now(timezone.utc))
 
     conversation = relationship("Conversation", back_populates="orders")
+    telegram_conversation = relationship("TelegramConversation", back_populates="orders")
     product = relationship("Product", back_populates="orders")
 
+
+# ── AI Config ─────────────────────────────────────────────────────────────────
 
 class AIConfig(Base):
     __tablename__ = "ai_config"
